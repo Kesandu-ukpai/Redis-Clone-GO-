@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 //create a store
 type Store struct{
 	data map[string]string
@@ -15,8 +17,12 @@ func (s *Store) Set(key string, value string){
 	s.data[key] = value
 }
 // get a value by key
-func(s *Store) Get(key string,)(string){
- return s.data[key]
+func(s *Store) Get(key string,)(string, error){
+	value, ok := s.data[key]
+	if !ok{
+		return "", fmt.Errorf("key not found: %s", key)
+	}
+	return value, nil
 }
 
 
