@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>redis-clone</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --line: #30363d;
+    --text: #e6edf3;
+    --dim: #8b949e;
+    --green: #3fb950;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --amber: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .window {
+    width: 100%;
+    max-width: 780px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    color: var(--dim);
+    font-size: 13px;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #ffbd2e; }
+  .dot.g { background: #27c93f; }
+  .bar span { margin-left: 8px; }
+  #screen {
+    height: 420px;
+    overflow-y: auto;
+    padding: 16px;
+    font-size: 15px;
+    line-height: 1.6;
+    cursor: text;
+  }
+  .line { white-space: pre-wrap; word-break: break-word; }
+  .echo .p { color: var(--green); }
+  .reply { color: var(--blue); }
+  .reply.err { color: var(--red); }
+  .reply.nil { color: var(--dim); }
+  .hint { color: var(--dim); }
+  .hint b { color: var(--amber); font-weight: 600; }
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .input-row .p { color: var(--green); white-space: nowrap; }
+  #cmd {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--text);
+    font: inherit;
+    caret-color: var(--green);
+  }
+  @media (max-width: 520px) {
+    #screen { height: 340px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="bar">
+      <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+      <span>redis-clone &middot; built in Go &middot; localhost:8080</span>
+    </div>
+    <div id="screen">
+      <div class="line hint">Type a command and press Enter.</div>
+      <div class="line hint">Try: <b>SET name kessy</b> &rarr; <b>GET name</b> &rarr; <b>DEL name</b> &rarr; <b>GET name</b></div>
+      <div class="line hint">&uarr; / &darr; for history &middot; <b>clear</b> to wipe the screen</div>
+      <br>
+      <div class="input-row">
+        <span class="p">127.0.0.1:6379&gt;</span>
+        <input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const screen = document.getElementById("screen");
+  const input = document.getElementById("cmd");
+  const row = document.querySelector(".input-row");
+  const PROMPT = "127.0.0.1:6379>";
+  const history = [];
+  let pos = 0;
+
+  screen.addEventListener("click", () => input.focus());
+
+  function addLine(html, cls) {
+    const d = document.createElement("div");
+    d.className = "line " + (cls || "");
+    d.innerHTML = html;
+    screen.insertBefore(d, row);
+    screen.scrollTop = screen.scrollHeight;
+  }
+
+  function esc(s) {
+    return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  }
+
+  async function send(line) {
+    try {
+      const res = await fetch("/cmd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cmd: line })
+      });
+      const data = await res.json();
+      return data.reply;
+    } catch (e) {
+      return "(error) can't reach the server. Is it running?";
+    }
+  }
+
+  input.addEventListener("keydown", async (e) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (pos > 0) { pos--; input.value = history[pos]; }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (pos < history.length - 1) { pos++; input.value = history[pos]; }
+      else { pos = history.length; input.value = ""; }
+      return;
+    }
+    if (e.key !== "Enter") return;
+
+    const line = input.value.trim();
+    input.value = "";
+    if (!line) return;
+
+    history.push(line);
+    pos = history.length;
+
+    addLine('<span class="p">' + PROMPT + '</span> ' + esc(line), "echo");
+
+    if (line.toLowerCase() === "clear") {
+      [...screen.querySelectorAll(".line")].forEach(n => n.remove());
+      return;
+    }
+
+    const reply = await send(line);
+    let cls = "reply";
+    if (reply.startsWith("(error)")) cls += " err";
+    else if (reply === "(nil)") cls += " nil";
+    addLine(esc(reply), cls);
+  });
+</script>
+</body>
+</html>
