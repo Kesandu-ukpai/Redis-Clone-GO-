@@ -37,6 +37,7 @@ return nil
 //exist what will the algo look like
 /**1) you will need to check the key exists in the map. so a method will be needed
 	2) you will need to return a boolean after checking the map*/
-// func (s *Store) Exist(key string) boolean{
-// 	_, ok := s.data[key]
-// }
+func (s *Store) Exist(key string) bool{
+	_, ok := s.data[key]
+	return ok
+}

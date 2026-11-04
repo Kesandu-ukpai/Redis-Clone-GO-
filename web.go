@@ -75,6 +75,18 @@ func run(s *Store, line string) string {
 			return "(integer) 0"
 		}
 		return "(integer) 1"
+
+		case "EXISTS":
+    	if len(parts) != 2 {
+        	return "(error) wrong number of arguments for 'exists'"
+    	}
+    	if s.Exist(parts[1]) {
+        	return "(integer) 1"
+    	}
+    return "(integer) 0"
 	}
+
 	return "(error) unknown command '" + parts[0] + "'"
+
+	
 }
